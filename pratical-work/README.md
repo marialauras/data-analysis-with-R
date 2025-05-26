@@ -1,46 +1,86 @@
-# 📊 Análise de Dados com R
+# 🧬 Análise de Sobrevivência em Câncer de Mama por Estágio AJCC
 
-Este repositório contém os projetos e scripts desenvolvidos para a disciplina *Análise de Dados com R*. O objetivo é explorar, limpar, visualizar e analisar conjuntos de dados utilizando o R e seus principais pacotes voltados para ciência de dados.
-
----
-
-## 🧾 Descrição do Projeto
-
-O projeto tem como finalidade aplicar técnicas de análise de dados com base em conjuntos de dados reais. O processo inclui limpeza dos dados, análise exploratória (EDA), visualização e, quando aplicável, modelagem estatística básica.
+Este projeto realiza uma análise estatística da associação entre o **estágio clínico do câncer de mama (AJCC Stage)** e o **tempo de sobrevida global (Overall Survival Time)**, com base em dados clínicos públicos disponibilizados no Kaggle.
 
 ---
 
-## 📁 Estrutura do Repositório
-## 🧪 Tecnologias e Pacotes
+## 🎯 Objetivo
 
-Principais ferramentas e bibliotecas utilizadas:
-
-- R (base)
-- [tidyverse](https://www.tidyverse.org/) (`dplyr`, `ggplot2`, `readr`, `tibble`, etc.)
-- `lubridate` – manipulação de datas
-- `janitor` – limpeza de dados
-- `knitr` / `rmarkdown` – geração de relatórios
-- `caret` / `randomForest` – machine learning (caso aplicável)
-
----
-## 📈 Exemplo de Resultado
-
-Abaixo, um exemplo de gráfico gerado durante a análise:
-
-![Exemplo de Gráfico](resultados/exemplo_grafico.png)
+Investigar se há uma associação estatisticamente significativa entre o **AJCC Stage** (estágio clínico do câncer) e o **tempo de sobrevida global (em meses)** de pacientes diagnosticados com câncer de mama.
 
 ---
 
-## 👩‍💻 Autora
+## 📊 Hipóteses
 
-**Maria Laura**  
-[LinkedIn](https://www.linkedin.com/in/seuperfil) • [GitHub](https://github.com/seuusuario)
+- **Hipótese Nula (H₀):** O estágio clínico (AJCC Stage) **não** está associado a diferenças significativas no tempo de sobrevida global.
+- **Hipótese Alternativa (H₁):** O estágio clínico (AJCC Stage) **está** associado a diferenças significativas no tempo de sobrevida global — ou seja, pacientes em estágios mais avançados tendem a ter menor sobrevida.
 
 ---
 
-## 📚 Referências
+## 🗃️ Dataset
 
-- *R para Ciência de Dados* — Hadley Wickham & Garrett Grolemund  
-  [https://r4ds.had.co.nz/](https://r4ds.had.co.nz/)
-- Materiais da disciplina e aulas
-- Documentação oficial do [Tidyverse](https://www.tidyverse.org/)
+- **Fonte:** [Breast Cancer Proteomes - Kaggle](https://www.kaggle.com/datasets/piotrgrabo/breastcancerproteomes)
+- **Arquivos utilizados:** `clinical_data.csv`
+- **Variáveis de interesse:**
+  - `AJCC_Stage`: Estágio clínico (I, II, III, IV)
+  - `Overall_Survival_Months`: Tempo de sobrevida global (em meses)
+  - `Vital_Status`: Status vital do paciente (vivo ou morto)
+
+---
+
+## 🧪 Metodologia
+
+### 1. Pré-processamento
+- Filtro de casos com dados completos em `AJCC_Stage` e `Overall_Survival_Months`.
+- Conversão de `Vital_Status` em variável binária para eventos de sobrevivência.
+
+### 2. Análise Estatística
+- Estimativas de sobrevivência com o método de **Kaplan-Meier**.
+- Teste de **log-rank** para comparar curvas de sobrevivência entre estágios.
+
+### 3. Visualizações
+- Curvas de sobrevivência por estágio (Kaplan-Meier).
+- Tabela de risco ao longo do tempo.
+
+---
+
+## 🛠️ Tecnologias e Pacotes
+
+- Linguagem: **R**
+- Pacotes: `survival`, `survminer`, `dplyr`, `readr`
+- Download automatizado do dataset via **Kaggle CLI**
+
+---
+
+## 📂 Estrutura do Projeto
+
+.
+├── data/
+│ ├── breastcancerproteomes.zip
+│ └── clinical_data.csv
+├── scripts/
+│ └── analise_sobrevivencia_ajcc.R
+├── .gitignore
+└── README.md
+
+yaml
+Copiar
+Editar
+
+---
+
+## 📈 Resultados Esperados
+
+A partir das curvas Kaplan-Meier e do teste log-rank, esperamos verificar uma tendência clara de menor sobrevida em estágios mais avançados, reforçando a importância do diagnóstico precoce.
+
+---
+
+## ✅ Como executar
+
+1. Instale os pacotes R necessários (veja `scripts/analise_sobrevivencia_ajcc.R`)
+2. Certifique-se de ter o [Kaggle CLI](https://github.com/Kaggle/kaggle-api) instalado e configurado com seu `kaggle.json`
+3. Execute o script:
+
+```r
+source("scripts/analise_sobrevivencia_ajcc.R")
+```
