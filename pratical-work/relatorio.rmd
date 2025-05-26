@@ -1,0 +1,45 @@
+# Instale os pacotes se ainda não tiver
+install.packages(c("survival", "survminer", "dplyr", "readr"))
+
+# Carregue os pacotes
+library(survival)
+library(survminer)
+library(dplyr)
+library(readr)
+
+# Visualize os nomes das colunas
+colnames(dados)
+
+# Supondo que as colunas se chamem "AJCC_Stage" e "Overall_Survival_Months"
+# e que exista uma coluna "Vital_Status" com "Dead" ou "Alive"
+dados_filtrados <- dados %>%
+  filter(!is.na(AJCC_Stage) & !is.na(Overall_Survival_Months)) %>%
+  mutate(
+    AJCC_Stage = factor(AJCC_Stage, levels = c("Stage I", "Stage II", "Stage III", "Stage IV")),
+    status = ifelse(Vital_Status == "Dead", 1, 0),
+    time = Overall_Survival_Months
+  )
+
+# Crie o objeto de sobrevivência
+surv_obj <- Surv(time = dados_filtrados$time, event = dados_filtrados$status)
+
+# Ajuste o modelo Kaplan-Meier
+km_fit <- survfit(surv_obj ~ AJCC_Stage, data = dados_filtrados)
+
+# Visualize as curvas
+ggsurvplot(
+  km_fit,
+  data = dados_filtrados,
+  pval = TRUE, # valor-p do log-rank
+  conf.int = TRUE,
+  risk.table = TRUE,
+  xlab = "Meses",
+  ylab = "Probabilidade de Sobrevivência",
+  legend.title = "Estágio AJCC"
+)
+
+# Teste log-rank para comparar as curvas
+survdiff(Surv(time, status) ~ AJCC_Stage, data = dados_filtrados)
+
+cox_fit <- coxph(Surv(time, status) ~ AJCC_Stage, data = dados_filtrados)
+summary(cox_fit)
