@@ -1,45 +1,155 @@
-# Instale os pacotes se ainda não tiver
-install.packages(c("survival", "survminer", "dplyr", "readr"))
+---
+title: "Análise da Sobrevida em Pacientes com Câncer de Mama"
+author: "Maria Laura"
+output:
+  html_document: default
+  pdf_document: default
+---
 
-# Carregue os pacotes
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
 library(survival)
 library(survminer)
-library(dplyr)
-library(readr)
+```
 
-# Visualize os nomes das colunas
-colnames(dados)
+# 1.Introdução
 
-# Supondo que as colunas se chamem "AJCC_Stage" e "Overall_Survival_Months"
-# e que exista uma coluna "Vital_Status" com "Dead" ou "Alive"
-dados_filtrados <- dados %>%
-  filter(!is.na(AJCC_Stage) & !is.na(Overall_Survival_Months)) %>%
+# 2. Pergunta científica
+Existe uma associação entre o estágio clínico de câncer e a sobrevida global em pacientes com câncer de mama?
+
+# 3. Hipótese
+### Hipótese nula (H₀): O estágio clínico não está associado a uma diferença significativa no tempo de sobrevida global.
+
+### Hipótese alternativa (H₁): O estágio clínico está associado a uma diferença significativa no tempo de sobrevida global.
+
+# 4. Carregamento e inspeção inicial dos dados
+```{r}
+## Leitura do conjunto de dados
+dados <- read.csv("clinical_data_breast_cancer.csv")
+
+# Estrutura geral do dataset
+glimpse(dados)
+```
+```{r}
+# Estatísticas descritivas iniciais
+summary(dados)
+```
+# 5. Análise descritiva
+
+A análise descritiva permitiu compreender a estrutura dos dados e identificar possíveis padrões iniciais. As variáveis categóricas foram descritas em termos de frequência absoluta, enquanto as variáveis numéricas foram avaliadas com base em medidas de tendência central e dispersão.
+
+### 5.1 Variáveis numéricas
+```{r}
+# Resumo estatístico das variáveis numéricas
+dados %>%
+  select_if(is.numeric) %>%
+  summary()
+```
+### 5.2 Variáveis categóricas
+```{r}
+# Resumo estatístico das variáveis numéricas
+# Tabelas de frequência para variáveis categóricas
+dados %>%
+  select_if(~is.factor(.) || is.character(.)) %>%
+  map(table)
+```
+# 6. Manipulação dos dados
+
+Realizou-se a transformação da variável de estágio clínico em um fator ordenado para permitir comparações coerentes entre os níveis da doença. O status vital foi recodificado em formato binário, e a variável de tempo de sobrevida foi assegurada como numérica contínua para posterior uso em modelos de sobrevivência.
+```{r}
+# Verificação dos níveis da variável de estágio
+unique(dados$AJCC.Stage)
+
+# Conversão do estágio para fator ordenado
+dados <- dados %>%
   mutate(
-    AJCC_Stage = factor(AJCC_Stage, levels = c("Stage I", "Stage II", "Stage III", "Stage IV")),
-    status = ifelse(Vital_Status == "Dead", 1, 0),
-    time = Overall_Survival_Months
-  )
+    Estagio = factor(AJCC.Stage, 
+                     levels = c("Stage I", "Stage IIA", "Stage IIB", "Stage IIIA", "Stage IIIB", "Stage IIIC", "Stage IV"),
+                     ordered = TRUE),
+    
+    # Conversão do status vital em variável binária (1 = óbito, 0 = vivo)
+    status_sobrevida = ifelse(Vital.Status == "DECEASED", 1, 0),
 
-# Crie o objeto de sobrevivência
-surv_obj <- Surv(time = dados_filtrados$time, event = dados_filtrados$status)
+    # Garantia de que OS.Time seja tratado como tempo de sobrevida em dias
+    tempo_sobrevida_dias = OS.Time
+  ) %>%
+  filter(!is.na(Estagio), !is.na(tempo_sobrevida_dias))
 
-# Ajuste o modelo Kaplan-Meier
-km_fit <- survfit(surv_obj ~ AJCC_Stage, data = dados_filtrados)
+head(dados)
+```
+# 7. Visualizações exploratórias
 
-# Visualize as curvas
-ggsurvplot(
-  km_fit,
-  data = dados_filtrados,
-  pval = TRUE, # valor-p do log-rank
-  conf.int = TRUE,
-  risk.table = TRUE,
-  xlab = "Meses",
-  ylab = "Probabilidade de Sobrevivência",
-  legend.title = "Estágio AJCC"
-)
+O gráfico mostra quanto tempo, em média, os pacientes sobrevivem após serem diagnosticados com diferentes estágios do câncer. De forma geral, quanto mais avançado o estágio, menor tende a ser o tempo de vida após o diagnóstico. Nos estágios iniciais (como o Estágio I), os pacientes costumam viver mais tempo, o que pode acontecer porque a doença ainda está localizada e é mais fácil de tratar. Já nos estágios mais avançados (como IIIB e IIIC), a sobrevida costuma ser menor, pois a doença já se espalhou mais pelo corpo e se torna mais difícil de controlar. Curiosamente, o Estágio IV — normalmente considerado o mais grave — mostra um tempo de vida mediano maior que os estágios IIIB e IIIC. Isso pode ocorrer por diversos motivos, como o tipo de tratamento recebido ou características individuais dos pacientes. 
+```{r}
+#7.1 Boxplot da sobrevida por estágio clínico
+ggplot(dados, aes(x = Estagio, y = tempo_sobrevida_dias)) +
+  geom_boxplot(fill = "#a6cee3") +
+  labs(title = "Tempo de Sobrevida por Estágio Clínico", 
+       x = "Estágio", 
+       y = "Sobrevida (dias)") +
+  theme_minimal()
+```
 
-# Teste log-rank para comparar as curvas
-survdiff(Surv(time, status) ~ AJCC_Stage, data = dados_filtrados)
+```{r}
+# 7.2 Identificação de Outliers na Sobrevida por Estágio Clínico
+ggplot(dados, aes(x = Estagio, y = tempo_sobrevida_dias, fill = Estagio)) +
+  geom_boxplot(outlier.color = "red", alpha = 0.7) +
+  labs(title = "Sobrevida por Estágio Clínico: Identificação de Outliers", 
+       x = "Estágio Clínico",
+       y = "Tempo de Sobrevida (dias)") +
+  theme_minimal()
+```
+```{r}
+# "Frequência de Pacientes por Estágio Clínico
+ggplot(dados, aes(x = Estagio, fill = Estagio)) +
+  geom_bar() +
+  labs(title = "Frequência de Pacientes por Estágio Clínico", 
+       x = "Estágio", 
+       y = "Frequência") +
+  theme_minimal()
+```
 
-cox_fit <- coxph(Surv(time, status) ~ AJCC_Stage, data = dados_filtrados)
-summary(cox_fit)
+# 8. Análise estatística
+```{r}
+# Instalar e carregar o pacote necessário
+install.packages("car") # só se necessário
+library(car)
+
+
+dados$Estagio <- as.factor(dados$Estagio)
+
+# Teste de homogeneidade de variância entre grupos definidos por Estagio
+leveneTest(tempo_sobrevida_dias ~ Estagio, data = dados)
+```
+Foi aplicado o modelo de Kaplan-Meier para estimar a função de sobrevivência estratificada por estágio clínico. O teste Log-Rank foi utilizado para verificar se as curvas de sobrevivência diferem significativamente entre os estágios.
+
+O gráfico apresenta as curvas de sobrevida para diferentes estágios clínicos da doença ao longo do tempo, mostrando que pacientes diagnosticados em estágios iniciais (como Stage I e IIA) tendem a ter maior probabilidade de sobrevivência e por mais tempo, em comparação com aqueles em estágios mais avançados (como Stage IIIA, IIIB, IIIC e IV). A diferença entre as curvas é estatisticamente significativa (p = 0.00024), o que indica que o estágio clínico no momento do diagnóstico tem impacto direto na expectativa de vida dos pacientes. Além disso, a tabela “Number at risk” mostra quantos pacientes permanecem sob acompanhamento em cada grupo ao longo do tempo, reforçando a diminuição da amostra nos estágios mais avançados com o passar dos dias.
+```{r}
+# Objeto de sobrevivência
+surv_obj <- Surv(time = dados$tempo_sobrevida_dias, event = dados$status_sobrevida)
+
+# Ajuste do modelo de Kaplan-Meier por estágio
+km_fit <- survfit(surv_obj ~ Estagio, data = dados)
+
+# Visualização das curvas
+ggsurvplot(km_fit, data = dados,
+           pval = TRUE,
+           conf.int = TRUE,
+           risk.table = TRUE,
+           risk.table.fontsize = 3,
+           xlab = "Tempo (dias)",
+           ylab = "Probabilidade de Sobrevivência",
+           title = "Curvas de Sobrevida por Estágio Clínico",
+           palette = "Dark2",
+           risk.table.height = 0.30,
+           ggtheme = theme_minimal(base_size = 8))
+
+ggsave("curva_sobrevivencia.png", dpi = 300, width = 10, height = 6)
+```
+# 9. Conclusão
+O teste Log-Rank aplicado para comparar as curvas de sobrevivência entre os diferentes estágios clínicos do câncer de mama resultou em um valor-p igual a 0,00024. Este valor é significativamente inferior ao nível de significância convencional de 0,05, indicando que rejeitamos a hipótese nula.
+
+Portanto, conclui-se que existe uma associação estatisticamente significativa entre o estágio clínico da doença e o tempo de sobrevida global das pacientes. Em outras palavras, o estágio do câncer impacta significativamente a sobrevida dos pacientes, sendo que diferentes estágios apresentam diferentes padrões de sobrevida.
+
+Esse resultado reforça a importância do estadiamento clínico como um fator prognóstico relevante para o câncer de mama.
